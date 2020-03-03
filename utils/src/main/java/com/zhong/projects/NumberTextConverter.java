@@ -18,11 +18,20 @@ public class NumberTextConverter {
 	//Precision to round the input number, 2 is the default value
 	private final static int PRECISION = 2;	
 	
+	//Distance between two ',' in a number, which is 3 digits away
+	private final static int COMMAS_DISTANCE = 4;	
+		
 	//These String constants are used to generate the output text. 
 	//They can be stored in external files as well to be more flexible.
 	
 	//Minus sign '-'
 	private final static String MINUS_STRING = "minus";
+	
+	//Comma sign ','
+	private final static String COMMA_STRING = ",";
+
+	//Comma sign ','
+	private final static String DOT_STRING = ".";
 
 	//Currency
 	private final static String CURRENCY_INTEGER_STRING = "dollar";
@@ -98,56 +107,74 @@ public class NumberTextConverter {
 			" quadrillion", // 1,000,000,000,000,000
 			" quintillion" // 1,000,000,000,000,000,000
 	};
+	
+	public static final String NUMBER_OUT_OF_RANGE = "The number is out of range!";
+
+	public static final String NUMBER_FORMAT_ERROR = "The number format is not correct!";
 
 	// Define maximal and minimal numbers here. These should be reasonable limits for dollars for real world.
 	public final static BigDecimal MAX_VALUE = new BigDecimal("1000000000000000000");         //1 Quintillion
 	public final static BigDecimal MIN_VALUE = new BigDecimal("-1000000000000000000");        //-1 Quintillion
-	public final static BigDecimal MAX_FLOAT_VALUE = new BigDecimal("9007199254740990");      //largest number can be represented accurately by a 64-bit float number (2^53 mantissa)
-	public final static BigDecimal MIN_FLOAT_VALUE = new BigDecimal("-9007199254740990");     //smallest number can be represented accurately by a 64-bit float number (2^53 mantissa)
+	public final static double MAX_FLOAT_VALUE = 9000000000000000d;      //The order around the largest number can be represented accurately by a 64-bit float number is 2^53
+	public final static double MIN_FLOAT_VALUE = -9000000000000000d;     // the order of the smallest number can be represented accurately by a 64-bit float
 
 	
 	//Logger
 	private final static Logger myLogger = LoggerFactory.getLogger(NumberTextConverter.class);
 	
-	/* Questions
-	 * 1. Input 
-	 * Floating numbers can not hold large numbers without losing precision. Using floating number as the input 
-	 * could lead to potential issues. Maybe we should use String or other formats which does not lose information?
-	 * 
-	 * Need to understand what is the valid input format. 
-	 * At this moment, assume the input is a sequence of numerical characters, containing an optional '.', such as "1234567.09".
-	 * No exponent or other scientific symbols. The implementation will be different if other formats need to be supported as well.
-	 * 
-	 * 2. Is there a valid range? 
-	 *  - A reasonable range is used here considering this number is a money ammount.     
-	 * 3. Could the number be negative?
-	 * 4. Rounding policies? 
-	 *  - Here, rounding to the closest number is used.
-	 * 5. Assumption is, if no whole dollar amount, only mention the cents. confirm.
-	 * 6. Assume using the US convention for the terminologies.
-	 *  
-	 * 7. How likely do we think this will be extended. We consider the extensibility, but we do not want to over design.
-	 * 8. How to handle null or empty value? 
+	/*********************************************************************************************
+	 *  TODO:
+	 *  These questions should be clarified.
+	 * Questions
+	 * 1. Input number representation
+	 * Float numbers have limited precision. Float numbers can not represent large numbers accurately. 
+	 * A 64-bit floating number (double) should be OK for check writing. :) (-9,007,199,254,740,990 ~ 9,007,199,254,740,990) (53-bits)
+     * String or other formats are more robust and can be extended easily.
+     * 2.Valid range
+		Should we set a range for the input number?
+	 * 3. Scales
+	 *	There are different scales schemes, i.e., long scale, short scale.
+	 * 4.Round policies
+     *   The input float is rounded to two decimal digits. There are multiple rounding policies.
+     * 5. Negative amount
+     *  Should negative numbers be supported?
+	 * 6. Is it a valid input if ',' is not 3 digits apart from '.' or another ','?
+	 * 7. How to handle empty string? 
 	 *  - At this moment, a "zero dollar" text is generated.
-	 */
+	 *  
+	 *  Assumptions
+	 *  1. Input data format
+	 *   Both float numbers and string represented numbers are supported. No scentific notation supported.
+     *  2. Number range
+     *   Considering the input is the amount of money, a range is used here.
+     *  3. A negative number is considered as a valid input
+     *  4.Rounding to the closest number is used to round the cents.
+     *  5. Short scale is used for the conversion
+     *  6. It's considered as an invalid number if ',' is not three digits apart from '.' or another ','.
+     *  7. Empty string 
+     *    A "zero dollar" text is generated.
+     *  8. Do not support scientific notition
+     *  9. No run-time configuration changes.
+	 *  
+	 *************************************************************************************************/
 	
 	/**
 	 * Convert a float number to text. 
 	 * @param number - the number which will be converted to text.
-	 *        This number should be in the range of  (-9007199254740990) ~ (9007199254740990). Otherwise, some information might
-	 *        be lost sine this is a 64-bit floating data type. 
 	 * @return the converted text.
+	 * @throws NumberFormatException - thrown if the string does not represent a valid float number.
+	 * @throws NumberOutOfRangeException - thrown if the number is out of the range.
 	 */
-	public static String convert(double number) {
-		String res = "";
+	public static String convert(double number) throws NumberFormatException, NumberOutOfRangeException{
 
-		try {
-			res = convert(String.valueOf(number));
-		} catch (NumberOutOfRangeException e) {
-			myLogger.error("Caught an exception {} \n", e);
+		if(number > MAX_FLOAT_VALUE || number < MIN_FLOAT_VALUE) {
+			throw new NumberTextConverter().new NumberOutOfRangeException(Double.toString(number), 
+					                                                      Double.toString(MAX_FLOAT_VALUE), 
+					                                                      Double.toString(MIN_FLOAT_VALUE));
 		}
-
-		return res;
+		else {
+			return convert(String.valueOf(number));
+		}
 	}
 	
 	/**
@@ -181,14 +208,12 @@ public class NumberTextConverter {
 		// by a String as well.
 		int fractionPart = validateRes[2].intValue();
 
-		
-		//Generate the text if the amount is zero
-		if((validateRes[1].compareTo(new BigInteger("0")) == 0) && 
-			(validateRes[2].compareTo(new BigInteger("0")) == 0))
-		{
+		// Generate the text if the amount is zero
+		if ((validateRes[1].compareTo(new BigInteger("0")) == 0)
+				&& (validateRes[2].compareTo(new BigInteger("0")) == 0)) {
 			return ZERO_STRING + " " + CURRENCY_INTEGER_STRING;
 		}
-		
+
 		// Convert the integer part if it's not zero
 		if (validateRes[1].compareTo(new BigInteger("0")) > 0) {
 			// Hold the 3-digit substring in current iteration
@@ -198,17 +223,18 @@ public class NumberTextConverter {
 			int unitIndex = 0;
 			// The number of digits in the integer part
 			int numIntegerDigits = integerPart.length();
-			
+
 			myLogger.trace("Integer part: {} number of digits {} \n", integerPart, numIntegerDigits);
 
-			// Loop through the integer string and convert the number 3 digits in each iteration
+			// Loop through the integer string and convert the number 3 digits in each
+			// iteration
 			while (numIntegerDigits > 0) {
 				int startingPos = numIntegerDigits > 3 ? numIntegerDigits - 3 : 0;
 				String tmpStr;
 				int tmpInt;
 
 				// if remaining digits is more than 3, get the lowest 3 digits
-				curString = integerPart.substring(startingPos, numIntegerDigits);				
+				curString = integerPart.substring(startingPos, numIntegerDigits);
 				tmpInt = Integer.parseInt(curString);
 				myLogger.trace("Current number under processing:{}\n", curString);
 
@@ -268,22 +294,61 @@ public class NumberTextConverter {
 	 * @throws NumberFormatException
 	 * @throws Exception
 	 */
-	private static BigInteger[] validateNumString(String input) throws NumberFormatException, NumberOutOfRangeException {
+	private static BigInteger[] validateNumString(String inStr) throws NumberFormatException, NumberOutOfRangeException {
 		BigInteger[] res = new BigInteger[3];
 		BigDecimal inNumber;
-
+		
+		//A valid number should not start with '.'
+		if( inStr.charAt(0) == '.')
+		{
+			throw new NumberFormatException("A valid number should not start with '.'!");
+		}
+		
+		//Check whether there are 3 digits between ',' and '. or two ','. 
+        //Remove ',' if they are in the right positions.
+		StringBuffer tmpStr = new StringBuffer(inStr);
+		
+		//Get the position of '.'. Set it to the string end if this number does not have a dot.
+		int dot_position = tmpStr.indexOf(DOT_STRING);
+		
+		//If there is no '.', set the position to string length.
+		if(dot_position == -1){
+			dot_position = tmpStr.length();
+		}
+		
+		int comma_position = tmpStr.indexOf(COMMA_STRING);
+		
+		//If it contains ',', check the position.
+		while(comma_position != -1) {
+			//If it starts with ',', 
+			//or a ',' appears after the '.'
+			//or it's not at the right position, throw an exception.
+			if( (comma_position == 0) ||
+				(comma_position > dot_position) ||
+				(( dot_position - comma_position) % COMMAS_DISTANCE != 0)) {
+				throw new NumberFormatException(inStr + " has \',\' at wrong postions.");
+			}
+			
+			//Remove current ',' and get the position of next ','. 
+			tmpStr.deleteCharAt(comma_position);
+			dot_position--;
+			comma_position = tmpStr.indexOf(COMMA_STRING);
+		}
+		
+		inStr = tmpStr.toString();
+		
 		// Is the input string a valid number? A NumberFormatException is thrown if it's
 		// not valid.
-		inNumber = new BigDecimal(input);
+		inNumber = new BigDecimal(inStr);
 
 		// Round the number to 2 decimal digit
 		inNumber = inNumber.setScale(PRECISION, RoundingMode.HALF_UP);
 
 		// Is the number in the range?
 		if (inNumber.compareTo(MAX_VALUE) > 0 || inNumber.compareTo(MIN_VALUE) < 0) {
-			myLogger.info("Input {} is out of range " + input.toString());
+			myLogger.info("Input {} is out of range " + inStr.toString());
 			NumberOutOfRangeException noore = 
-					new NumberTextConverter().new NumberOutOfRangeException("Number out of range: " + input.toString(), 
+					new NumberTextConverter().new NumberOutOfRangeException("Number out of range: " + inStr.toString(), 
 							MAX_VALUE.toString(), MIN_VALUE.toString());
 			throw noore;
 		}

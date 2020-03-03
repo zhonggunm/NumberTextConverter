@@ -10,7 +10,7 @@ import org.slf4j.LoggerFactory;
 class TestNumberTextConerter {
 	private final static Logger logger = LoggerFactory.getLogger(TestNumberTextConerter.class);
 	
-	private final static String[][] basicScenarios = {
+	private final static String[][] CONVERT_STRING_NORMAL_SCENARIOS = {
 			/*
 			 * 1. Verify the basic function works:
 			 *  - Numbers 0~19
@@ -24,6 +24,7 @@ class TestNumberTextConerter {
 			 *  - Fraction only
 			 *  - Numbers with both parts
 			 *  - Rounding
+			 *  - Number with ","
 			 *  - Max
 			 *  - Min
 			 *  - Number with leading '0's
@@ -67,12 +68,15 @@ class TestNumberTextConerter {
 			{ "-1000000000000000000", "minus one quintillion dollars"},   //Min
 
 			
+			{ "0","zero dollar"},
+			{ "0.0","zero dollar"},
 			{ "23", "twenty three dollars" }, 
 			{ "-45", "minus forty five dollars" },
-			{"0","zero dollar"},
-			{ "123.46", "one hundred twenty three dollars and forty six cents" }, 
 			{ "0.345", "thirty five cents" },
 			{ "0.244", "twenty four cents" },
+			{ "123.46", "one hundred twenty three dollars and forty six cents" },
+			{ "7,456,123.46", "seven million four hundred fifty six thousand one hundred twenty three dollars and forty six cents" },
+			{ "7,456,123", "seven million four hundred fifty six thousand one hundred twenty three dollars" }, 
 
 			/*
 			 * 3. Negative conditions - Spaces in the input - non numerical characters in
@@ -81,7 +85,7 @@ class TestNumberTextConerter {
 
 	};
 	
-	private final static String[][] boundaryScenarios = {
+	private final static String[][] CONVERT_STRING_BOUNDARY_SCENARIOS = {
 			/*
 			 * 2. Boundary and special scenarios
 			 *  - null
@@ -119,58 +123,107 @@ class TestNumberTextConerter {
 
 	// Random number
 
-	/* 
-	 * 3.Testing the method taking a float as input.
-	 */
-	private final static double[] floatInput = { 
-			-102234f,
-			999.99f,
-	};
-
-	private final static String[] floatExpectedOutput = { 
-			"minus one hundred two thousand two hundred thirty four dollars",
-			 "nine hundred ninety nine dollars and ninety nine cents",
-	};
-
-
-
 	/*
-	 * 4. Negative conditions 
+	 * 3. Negative conditions 
 	 * - Spaces in the input 
 	 * - non numerical characters in the input 
 	 * - multiple '.' in input - empty string
+	 * - start with '.'
+	 * - ',' at wrong position
 	 * - Max + 1
 	 * - Min - 1
 	 */
-	private final static String[] exceptionScenarios = { 
+	private final static String[] CONVERT_STRING_EXCEPTION_SCENARIOS_INPUT = { 
 			"34567 55", 
 			"52345x35.35", 
 			"535.353.5",
+			".2345353535",
+			"74,56,123", 
+			"7,456,123.2,",			 
+			",456,123", 
 			"1000000000000000001",
 			"-1000000000000000001",
+			};
+	private final static Class[] CONVERT_STRING_EXCEPTION_SCENARIOS_EXCEPTIONS = { 
+			NumberFormatException.class,
+			NumberFormatException.class,
+			NumberFormatException.class,	
+			NumberFormatException.class,
+			NumberFormatException.class,
+			NumberFormatException.class, 
+			NumberFormatException.class, 
+			NumberTextConverter.NumberOutOfRangeException.class,
+			NumberTextConverter.NumberOutOfRangeException.class,
 	};
+	/*
+	private final static String[][] CONVERT_STRING_EXCEPTION_SCENARIOS = { 
+			{"34567 55", NumberTextConverter.NUMBER_FORMAT_ERROR}, 
+			{"52345x35.35", NumberTextConverter.NUMBER_FORMAT_ERROR}, 
+			{"535.353.5", NumberTextConverter.NUMBER_FORMAT_ERROR},
+			{".2345353535", NumberTextConverter.NUMBER_FORMAT_ERROR},
+			{"74,56,123", NumberTextConverter.NUMBER_FORMAT_ERROR},
+			{"7,456,123.2,", NumberTextConverter.NUMBER_FORMAT_ERROR},			 
+			{",456,123", NumberTextConverter.NUMBER_FORMAT_ERROR},
+			{"1000000000000000001", NumberTextConverter.NUMBER_OUT_OF_RANGE},
+			{"-1000000000000000001",NumberTextConverter.NUMBER_OUT_OF_RANGE},
+			};
+			*/
 	
-	private final static Class[] expectedExceptions = { 
-			NumberFormatException.class, 
-			NumberFormatException.class, 
-			NumberFormatException.class, 
-			NumberTextConverter.NumberOutOfRangeException.class,
-			NumberTextConverter.NumberOutOfRangeException.class,
+	/* 
+	 * 4.Testing the method taking a float as input.
+	 */
+	private final static double[] CONVERT_FLOAT_NORMAL_SCENARIOS = { 
+			-102234f,
+			999.99f,
+			0.0,
+			9000000000000000d,
+			-9000000000000000d,
+	};
+
+	private final static String[] CONVERT_FLOAT_NORMAL_SCENARIO_OUTPUT = { 
+			"minus one hundred two thousand two hundred thirty four dollars",
+			 "nine hundred ninety nine dollars and ninety nine cents",
+			 "zero dollar",
+			 "nine quadrillion dollars",
+			 "minus nine quadrillion dollars"
 	};
 
 	
+	/*
+	 * 5. Negative scenarios for float input 
+	 * - Max + 1
+	 * - Min - 1
+	 */
+	
+	private final static double[] CONVERT_FLOAT_EXCEPTION_SCENARIOS_INPUT = { 
+			9000000000000001d,
+			-9000000000000001d,
+	};
+	
+	private final static Class[] CONVERT_FLOAT_EXCEPTION_SCENARIOS_EXCEPTIONS = { 
+			NumberTextConverter.NumberOutOfRangeException.class,
+			NumberTextConverter.NumberOutOfRangeException.class,
+	};
+	
+	/*
+	private final static String[] CONVERT_FLOAT_EXPECTED_EXCEPTIONS = { 
+			NumberTextConverter.NUMBER_OUT_OF_RANGE,
+			NumberTextConverter.NUMBER_OUT_OF_RANGE,
+	};
+	*/
 	public static void main(String[] args) {
 		logger.info("Test the converter");
 
 		int failed = 0;
-		failed += testBasicFunctions();
-		failed += testBoundaryHandling();
-		failed += testExceptionScenarios();
-		failed += testConvertFloat();
+		failed += testConvertStringBasicScenarios();
+		failed += testConvertStringBoundaryScenarios();
+		failed += testConvertStringExceptionScenarios();
+		failed += testConvertFloatNormalScenarios();
+		failed += testConvertFloatExceptionScenarios();
 		
 		logger.info("Test completed. \n" +
 		        "{} tested, {} failed.\n", 
-				basicScenarios.length + boundaryScenarios.length + exceptionScenarios.length + floatInput.length,
+				CONVERT_STRING_NORMAL_SCENARIOS.length + CONVERT_STRING_BOUNDARY_SCENARIOS.length + CONVERT_STRING_EXCEPTION_SCENARIOS_INPUT.length + CONVERT_FLOAT_NORMAL_SCENARIOS.length,
 				failed);
 	}
 
@@ -178,29 +231,23 @@ class TestNumberTextConerter {
 	 * Test the basic scenarios of the converting function.
 	 * @return
 	 */
-	static int testBasicFunctions() {
+	static int testConvertStringBasicScenarios() {
 		int passed = 0;
 		int failed = 0;
 
 
 		logger.info("Start testing basic function handling.\n");
 
-		for (String[] tc : basicScenarios) {
+		for (String[] tc : CONVERT_STRING_NORMAL_SCENARIOS) {
 
 			try {
-
 				String textString = NumberTextConverter.convert(tc[0]);
 				if (!tc[1].equals(textString)) {
-					logger.info("Case failed, number is {}, \n" + 
-							"converted text is {}\n" + 
-							"expected  text is {}\n",
-							tc[0], 
-							textString, 
-							tc[1]);
+					logger.error("Case failed, number is {}, \n" + "converted text is {}\n" + "expected  text is {}\n",
+							tc[0], textString, tc[1]);
 
 					failed++;
 				}
-				
 				passed++;
 			} catch (Exception e) {
 				failed++;
@@ -209,7 +256,7 @@ class TestNumberTextConerter {
 			}
 		}
 
-		logger.info("{} cases tested, {} cases passed, {} cases failed.\n", basicScenarios.length, passed, failed);
+		logger.info("{} cases tested, {} cases passed, {} cases failed.\n", CONVERT_STRING_NORMAL_SCENARIOS.length, passed, failed);
 
 		return failed;
 	}
@@ -218,33 +265,34 @@ class TestNumberTextConerter {
 	 * Test the boundary scenarios of the converting function.
 	 * @return - the number of failed cases.
 	 */
-	static int testBoundaryHandling() {
+	static int testConvertStringBoundaryScenarios() {
 		int passed = 0;
 		int failed = 0;
 
 
 		logger.info("Start testing boundary handling.\n");
 
-		for (String[] tc : boundaryScenarios) {
+		for (String[] tc : CONVERT_STRING_BOUNDARY_SCENARIOS) {
 			try {
+
 				String textString = NumberTextConverter.convert(tc[0]);
 
 				if (!tc[1].equals(textString)) {
-					logger.info("!!!Case failed: input number is {}\nexpected text: {},\n" + "returned text: {} \n",
+					logger.error("!!!Case failed: input number is {}\nexpected text: {},\n" + "returned text: {} \n",
 							tc[0], tc[1], textString);
 
 					failed++;
 				}
-			} catch (Exception e) {
 
-				logger.info("Processing {}, caught an exception: {}", tc[0], e.toString());
+				passed++;
+			} catch (Exception e) {
 				failed++;
+				logger.info("Caught an exception: {}", e.toString());
 				continue;
 			}
-			passed++;
 		}
 
-		logger.info("{} cases tested, {} cases passed, {} cases failed.\n", boundaryScenarios.length, passed, failed);
+		logger.info("{} cases tested, {} cases passed, {} cases failed.\n", CONVERT_STRING_BOUNDARY_SCENARIOS.length, passed, failed);
 
 		return failed;
 
@@ -254,15 +302,15 @@ class TestNumberTextConerter {
 	 * Test the exception scenarios of the converting function.
 	 * @return - the number of failed cases.
 	 */
-	static int testExceptionScenarios() {
+	static int testConvertStringExceptionScenarios() {
 
 		int passed = 0;
 		int failed = 0;
 
 		logger.info("Start testing number format error handling.\n");
-
-		for (int i = 0; i < exceptionScenarios.length; i++) {
-			String tc = exceptionScenarios[i];
+		
+		for (int i = 0; i < CONVERT_STRING_EXCEPTION_SCENARIOS_INPUT.length; i++) {
+			String tc = CONVERT_STRING_EXCEPTION_SCENARIOS_INPUT[i];
 			String convertedString;
 			logger.info("Input: {}\n", tc);
 
@@ -270,7 +318,7 @@ class TestNumberTextConerter {
 				convertedString = NumberTextConverter.convert(tc);
 			} catch (Exception e) {
 				logger.info("Caught an exception as expected: {}.\n", e.toString());
-				if(e.getClass() == expectedExceptions[i]) {
+				if(e.getClass() == CONVERT_STRING_EXCEPTION_SCENARIOS_EXCEPTIONS[i]) {
 					passed++;
 				} else {
 					failed++;
@@ -282,8 +330,9 @@ class TestNumberTextConerter {
 			failed++;
 		}
 		
-		logger.info("{} cases tested, {} cases passed, {} cases failed", exceptionScenarios.length, passed, failed);
-		
+		logger.info("{} cases tested, {} cases passed, {} cases failed", CONVERT_STRING_EXCEPTION_SCENARIOS_INPUT.length,
+				passed, failed);
+
 		return failed;
 	}
 
@@ -291,23 +340,69 @@ class TestNumberTextConerter {
 	 * Test the converting method which takes a float as input.
 	 * @return - the number of failed cases.
 	 */
-	static int testConvertFloat() {
+	static int testConvertFloatNormalScenarios() {
 		int passed = 0;
 		int failed = 0;
 		logger.info("Start testing input is a float number.\n");
 
-		for(int i = 0; i < floatInput.length; i++) {
-			String convertedString = NumberTextConverter.convert(floatInput[i]);
-			if(convertedString.equals(floatExpectedOutput[i])) {
-				passed++;
-			} else {
+		for(int i = 0; i < CONVERT_FLOAT_NORMAL_SCENARIOS.length; i++) {
+			
+			try {
+				String convertedString = NumberTextConverter.convert(CONVERT_FLOAT_NORMAL_SCENARIOS[i]);
+				if (convertedString.equals(CONVERT_FLOAT_NORMAL_SCENARIO_OUTPUT[i])) {
+					passed++;
+				} else {
+					failed++;
+					logger.error("!!!Case failed: input number is {}\nexpected text: {},\n" + "returned text: {} \n",
+							CONVERT_FLOAT_NORMAL_SCENARIOS[i], CONVERT_FLOAT_NORMAL_SCENARIO_OUTPUT[i],
+							convertedString);
+				}
+
+			} catch (Exception e) {
 				failed++;
-				logger.info("!!!Case failed: input number is {}\nexpected text: {},\n" + "returned text: {} \n",
-						floatInput[i], floatExpectedOutput[i], convertedString);
+				logger.info("Caught an exception: {}", e.toString());
+				continue;
 			}
 		}
-			
+
 		logger.info("{} cases passed, {} cases failed.\n", passed, failed);
+		return failed;
+	}
+
+	/**
+	 * Test the exception scenarios of the converting function.
+	 * @return - the number of failed cases.
+	 */
+	static int testConvertFloatExceptionScenarios() {
+	
+		int passed = 0;
+		int failed = 0;
+	
+		logger.info("Start testing conver float number format error handling.\n");
+		
+		for (int i = 0; i < CONVERT_FLOAT_EXCEPTION_SCENARIOS_INPUT.length; i++) {
+			double tc = CONVERT_FLOAT_EXCEPTION_SCENARIOS_INPUT[i];
+			String convertedString;
+			logger.info("Input: {}\n", tc);
+
+			try {
+				convertedString = NumberTextConverter.convert(tc);
+			} catch (Exception e) {
+				logger.info("Caught an exception as expected: {}.\n", e.toString());
+				if(e.getClass() == CONVERT_FLOAT_EXCEPTION_SCENARIOS_EXCEPTIONS[i]) {
+					passed++;
+				} else {
+					failed++;
+				}
+				continue;
+
+			}
+			logger.info("Expected to catch exception, but did not. The converted text is: \n{}\n", convertedString);
+			failed++;
+		}
+
+		logger.info("{} cases tested, {} cases passed, {} cases failed", CONVERT_FLOAT_EXCEPTION_SCENARIOS_INPUT.length, passed, failed);
+		
 		return failed;
 	}
 
